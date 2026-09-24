@@ -118,6 +118,18 @@ class CommandTests(unittest.TestCase):
         self.assertEqual(parse_query("/查谱面 100001 ex"), ("chart", "100001", "EXPERT"))
         self.assertIn("818 Notes", handle_command("/查谱面 100001 ex", self.repo) or "")
 
+    def test_chart_image_uses_expert_by_default_and_requested_difficulty(self) -> None:
+        easy = Chart("EASY", 9, 9.0, 342, "0001/0001_00")
+        self.repo.songs[0] = replace(self.repo.songs[0], charts=(easy, self.repo.songs[0].charts[0]))
+        with patch("ournotes_bot.qq.load_chart_score", return_value={"notes": []}) as load, \
+             patch("ournotes_bot.qq.render_chart", return_value=b"image") as render:
+            self.assertEqual(_image_reply("/查谱面 100001", self.repo), b"image")
+            self.assertEqual(load.call_args.args[0].difficulty, "EXPERT")
+            self.assertEqual(render.call_args.args[4], "EXPERT")
+            self.assertEqual(_image_reply("/查谱面 100001 EASY", self.repo), b"image")
+            self.assertEqual(load.call_args.args[0].difficulty, "EASY")
+            self.assertEqual(render.call_args.args[4], "EASY")
+
     def test_bare_panel_commands_explain_required_arguments(self) -> None:
         for command, example in (("/查谱面", "/查谱面 100001"), ("/查曲", "/查曲 迷星叫"), ("/查卡", "/查卡 51")):
             with self.subTest(command=command):

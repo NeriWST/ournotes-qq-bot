@@ -6,6 +6,7 @@ import logging
 
 from botpy.http import Route
 
+from .chart_data import ChartDataError, load_chart_score
 from .commands import handle_command, locale_for, page_notice, page_slice, parse_query, song_matches
 from .data import SongRepository
 from .visuals import render_card, render_card_list, render_chart, render_song_list
@@ -29,7 +30,14 @@ def _image_reply(content: str, repository: SongRepository) -> bytes | None:
         if not songs:
             return None
         charts = tuple(chart for chart in songs[0].charts if difficulty is None or chart.difficulty == difficulty)
-        return render_chart(songs[0], charts, locale)
+        preview_chart = next((chart for chart in charts if chart.difficulty == "EXPERT"), charts[-1] if charts else None)
+        score = None
+        if preview_chart:
+            try:
+                score = load_chart_score(preview_chart)
+            except ChartDataError:
+                logger.warning("谱面预览暂不可用：%s", preview_chart.chart_file)
+        return render_chart(songs[0], charts, locale, score, preview_chart.difficulty if preview_chart else None)
     if kind == "cards":
         cards = repository.search_cards(query, limit=len(repository.cards))
         if not cards:
