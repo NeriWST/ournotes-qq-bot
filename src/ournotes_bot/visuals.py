@@ -43,8 +43,11 @@ def _label(locale: str, key: str) -> str:
 
 def _font(size: int) -> ImageFont.FreeTypeFont | ImageFont.ImageFont:
     for path in FONT_PATHS:
-        if Path(path).exists():
-            return ImageFont.truetype(path, size)
+        try:
+            if Path(path).is_absolute() and Path(path).exists():
+                return ImageFont.truetype(path, size)
+        except OSError:
+            continue
     return ImageFont.load_default()
 
 
