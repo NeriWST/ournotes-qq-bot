@@ -10,7 +10,7 @@ from .i18n import tr
 
 HELP_TEXT = """Our Notes 查询指令
 /查曲 [歌名或ID] [等级或lv等级] [页N]：搜索歌曲列表，可翻页
-/查谱面 歌名或ID [难度]：查看音符谱面预览
+/查谱面 歌名或ID [难度]：查看音符谱面预览；100001 可简写为 1
 /查卡 角色名或卡牌ID [页N]：搜索卡面，可翻页
 /查缩写 缩写：查看缩写对应的角色，也可直接用于查卡
 /查活动：活动资料（暂未上线）
@@ -41,7 +41,7 @@ Example: /song mygo 27, /chart 100001 EXPERT, /card tomori""",
 
 COMMAND_HELP = {
     "songs": "查询歌曲列表，支持歌名、乐队、曲目 ID 或等级，每页 16 首。27 与 lv27 相同，均匹配整数等级 27（含显示等级 27.5）；27.5 与 lv27.5 均精确匹配显示等级。纯数字若恰好是曲目 ID，优先按 ID 查询。\n用法：/查曲 [歌名或ID] [等级或lv等级] [页N]\n示例：/查曲 迷星叫、/查曲 27、/查曲 mygo lv27 页2",
-    "chart": "查询音符谱面预览，支持歌名或曲目 ID。可选难度：EASY、NORMAL、HARD、EXPERT（默认预览 EXPERT，同时显示全部难度信息）。\n用法：/查谱面 <歌名或ID> [难度]\n示例：/查谱面 100001 EXPERT",
+    "chart": "查询音符谱面预览，支持歌名或曲目 ID。100001 可简写为 1。可选难度：EASY、NORMAL、HARD、EXPERT（默认预览 EXPERT，同时显示全部难度信息）。\n用法：/查谱面 <歌名或ID> [难度]\n示例：/查谱面 1 EXPERT、/查谱面 100001 EXPERT",
     "cards": "查询卡面，支持卡牌 ID、角色名、卡牌名或乐队名，每页 16 张。\n用法：/查卡 <关键词或ID> [页N]\n示例：/查卡 高松灯、/查卡 mygo 页2、/查卡 51\n找到多张卡时会显示列表，再用卡牌 ID 查看大图。",
     "abbrev": "查询角色缩写，也可以直接用缩写查卡。\n用法：/查缩写 <缩写>\n示例：/查缩写 skk、/查卡 tmr",
 }
@@ -49,13 +49,13 @@ COMMAND_HELPS = {
     "zh": COMMAND_HELP,
     "en": {
         "songs": "Search by title, band, ID, or level; 16 songs per page. 27 and lv27 match base level 27; 27.5 and lv27.5 match the displayed level exactly. An exact song ID takes priority over a bare number.\nUsage: /song [title or ID] [level or lv level] [page N]\nExample: /song mygo 27 page 2",
-        "chart": "Preview note positions by title or ID. Optional difficulty: EASY, NORMAL, HARD, EXPERT; defaults to EXPERT.\nUsage: /chart <title or ID> [difficulty]\nExample: /chart 100001 EXPERT",
+        "chart": "Preview note positions by title or ID. Song 100001 can be shortened to 1. Optional difficulty: EASY, NORMAL, HARD, EXPERT; defaults to EXPERT.\nUsage: /chart <title or ID> [difficulty]\nExample: /chart 1 EXPERT",
         "cards": "Search by card ID, character, card title, or band, 16 per page.\nUsage: /card <query or ID> [page N]\nExample: /card tomori or /card mygo page 2",
         "abbrev": "Look up character abbreviations.\nUsage: /abbrev <abbreviation>\nExample: /abbrev skk",
     },
     "ja": {
         "songs": "曲名・バンド・ID・レベルで検索します。1ページ16曲。27とlv27は基本レベル27、27.5とlv27.5は表示レベルを完全一致で検索します。数字が曲IDと一致する場合はIDを優先します。\n使い方：/曲 [曲名またはID] [レベルまたはlvレベル] [ページN]\n例：/曲 mygo 27 ページ2",
-        "chart": "曲名またはIDでノーツ譜面をプレビューします。難易度省略時はEXPERTです。\n使い方：/譜面 <曲名またはID> [難易度]\n例：/譜面 100001 EXPERT",
+        "chart": "曲名またはIDでノーツ譜面をプレビューします。100001は1と省略できます。難易度省略時はEXPERTです。\n使い方：/譜面 <曲名またはID> [難易度]\n例：/譜面 1 EXPERT",
         "cards": "カードID、キャラクター名、カード名、バンド名で検索します。1ページ16枚。\n使い方：/カード <名前またはID> [ページN]\n例：/カード 祥子、/カード mygo ページ2、/カード 51",
         "abbrev": "キャラクターの略称を調べます。\n使い方：/略称 <略称>\n例：/略称 skk",
     },
@@ -162,8 +162,14 @@ def parse_query(content: str) -> tuple[str, str, str | int | None] | None:
         parts = query.rsplit(None, 1)
         difficulties = {"E": "EASY", "EASY": "EASY", "N": "NORMAL", "NORMAL": "NORMAL", "H": "HARD", "HARD": "HARD", "EX": "EXPERT", "EXP": "EXPERT", "EXPERT": "EXPERT", "イージー": "EASY", "ノーマル": "NORMAL", "ハード": "HARD", "エキスパート": "EXPERT", "简单": "EASY", "普通": "NORMAL", "困难": "HARD", "专家": "EXPERT"}
         if len(parts) == 2 and parts[1].upper() in difficulties:
-            return "chart", parts[0], difficulties[parts[1].upper()]
-        return "chart", query, None
+            query, difficulty = parts[0], difficulties[parts[1].upper()]
+        else:
+            difficulty = None
+        # Only chart lookup accepts the shortened 100000-series song ID.
+        short_id = unicodedata.normalize("NFKC", query)
+        if short_id.isdecimal() and 1 <= int(short_id) < 100000:
+            query = str(100000 + int(short_id))
+        return "chart", query, difficulty
     if kind == "cards":
         query, page = _split_page(query)
         return ("cards", query, page) if query else None

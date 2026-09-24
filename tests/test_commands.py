@@ -57,6 +57,20 @@ class CommandTests(unittest.TestCase):
         self.assertIn("迷星叫", reply or "")
         self.assertIn("歌曲列表", reply or "")
 
+    def test_short_id_is_only_for_chart_queries(self) -> None:
+        self.assertEqual(parse_query("/查谱面 1"), ("chart", "100001", None))
+        self.assertEqual(parse_query("/chart 1 EASY"), ("chart", "100001", "EASY"))
+        self.assertEqual(parse_query("/譜面 １"), ("chart", "100001", None))
+        self.assertIn("818 Notes", handle_command("/查谱面 1", self.repo) or "")
+        self.assertIn("818 Notes", handle_command("/chart 1", self.repo) or "")
+        self.assertEqual(parse_query("/查曲 1"), ("songs", "1", 1))
+        self.assertEqual(song_matches(self.repo, "1"), [])
+        self.assertIn("没有找到", handle_command("/查曲 1", self.repo) or "")
+        with patch("ournotes_bot.qq.load_chart_score", return_value={"notes": []}), \
+             patch("ournotes_bot.qq.render_chart", return_value=b"image") as render:
+            self.assertEqual(_image_reply("/查谱面 1", self.repo), b"image")
+            self.assertEqual(render.call_args.args[0].id, 100001)
+
     def test_song_level_filter_and_combined_search(self) -> None:
         base = replace(self.repo.songs[0], charts=(Chart("EXPERT", 27, 27.5, 818, "chart"),))
         same_band = replace(base, id=100002, title="Second song", titles=("Second song",),
