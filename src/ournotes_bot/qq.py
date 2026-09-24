@@ -6,7 +6,7 @@ import logging
 
 from botpy.http import Route
 
-from .commands import handle_command, locale_for, page_notice, page_slice, parse_query
+from .commands import handle_command, locale_for, page_notice, page_slice, parse_query, song_matches
 from .data import SongRepository
 from .visuals import render_card, render_card_list, render_chart, render_song_list
 
@@ -21,7 +21,7 @@ def _image_reply(content: str, repository: SongRepository) -> bytes | None:
     kind, query, difficulty = parsed
     locale = locale_for(content)
     if kind == "songs":
-        songs = repository.search(query, limit=len(repository.songs))
+        songs = song_matches(repository, query)
         visible = page_slice(songs, int(difficulty))
         return render_song_list(visible, query, locale, page_notice(kind, query, int(difficulty), len(songs), locale)) if visible else None
     if kind == "chart":

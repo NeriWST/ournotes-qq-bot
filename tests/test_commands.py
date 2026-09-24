@@ -6,7 +6,7 @@ from dataclasses import replace
 from pathlib import Path
 from unittest.mock import patch
 
-from ournotes_bot.commands import handle_command, parse_query
+from ournotes_bot.commands import handle_command, parse_query, song_matches
 from ournotes_bot.data import Card, Chart, DataError, Song, SongRepository, _rows, normalize, resolve_character_alias, roman_to_hiragana
 from ournotes_bot.qq import _image_reply
 
@@ -56,6 +56,42 @@ class CommandTests(unittest.TestCase):
         reply = handle_command("查曲 100001", self.repo)
         self.assertIn("迷星叫", reply or "")
         self.assertIn("歌曲列表", reply or "")
+
+    def test_song_level_filter_and_combined_search(self) -> None:
+        base = replace(self.repo.songs[0], charts=(Chart("EXPERT", 27, 27.5, 818, "chart"),))
+        same_band = replace(base, id=100002, title="Second song", titles=("Second song",),
+                            charts=(Chart("HARD", 27, 27.0, 600, "chart"),))
+        other_band = replace(base, id=100003, title="Other song", titles=("Other song",),
+                             band="Afterglow", localized={"band": {"zh": "Afterglow"}},
+                             charts=(Chart("EXPERT", 27, 27.5, 700, "chart"),))
+        self.repo.songs = [base, same_band, other_band]
+        self.assertEqual([song.id for song in song_matches(self.repo, "lv27")], [100001, 100002, 100003])
+        self.assertEqual([song.id for song in song_matches(self.repo, "lv27.5")], [100001, 100003])
+        self.assertEqual([song.id for song in song_matches(self.repo, "lv27.0")], [100002])
+        self.assertEqual([song.id for song in song_matches(self.repo, "mygo LV 27.5")], [100001])
+        self.assertEqual([song.id for song in song_matches(self.repo, "100001 lv27")], [100001])
+        self.assertIn("共 1首", handle_command("/查曲 mygo lv27.5", self.repo) or "")
+        self.assertIn("1 songs", handle_command("/song mygo lv27.5", self.repo) or "")
+        self.assertIn("全1曲", handle_command("/曲 mygo lv27.5", self.repo) or "")
+        self.assertIn("没有找到", handle_command("/查曲 lv29", self.repo) or "")
+
+    def test_song_level_filter_paginates_text_and_image(self) -> None:
+        base = self.repo.songs[0]
+        self.repo.songs = [replace(base, id=100001 + index, title=f"Song {index}",
+                                   charts=(Chart("EXPERT", 27 if index % 2 == 0 else 26,
+                                                 27.5 if index % 2 == 0 else 26.5, 800, "chart"),))
+                           for index in range(35)]
+        self.assertEqual(parse_query("/查曲 lv27 页2"), ("songs", "lv27", 2))
+        first = handle_command("/查曲 lv27", self.repo) or ""
+        second = handle_command("/查曲 lv27 页2", self.repo) or ""
+        self.assertIn("共 18首", first)
+        self.assertIn("/查曲 lv27 页2", first)
+        self.assertIn("100035", second)
+        self.assertNotIn("100034", second)
+        with patch("ournotes_bot.qq.render_song_list", return_value=b"image") as render:
+            self.assertEqual(_image_reply("/查曲 lv27 页2", self.repo), b"image")
+            self.assertEqual(len(render.call_args.args[0]), 2)
+            self.assertIn("共 18首", render.call_args.args[3])
 
     def test_slash_chart_difficulty(self) -> None:
         self.assertEqual(parse_query("/查谱面 100001 ex"), ("chart", "100001", "EXPERT"))

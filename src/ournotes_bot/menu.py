@@ -17,7 +17,6 @@ MENU_ITEMS = [
     {"type": "send_message", "name": "帮助", "send_message": "/帮助"},
 ]
 MORE_MENU_ITEMS = [
-    {"type": "send_message", "name": "多语言", "send_message": "/语言"},
     {"type": "send_message", "name": "查活动", "send_message": "/查活动"},
     {"type": "send_message", "name": "查卡池", "send_message": "/查卡池"},
     {"type": "send_message", "name": "预测线", "send_message": "/ycx"},
@@ -25,15 +24,13 @@ MORE_MENU_ITEMS = [
 PANEL_ITEMS = [
     # QQ stores the command name without '/', then adds the slash in the client UI.
     {"type": "command", "name": "查谱面", "desc": "按歌曲 ID 查询谱面资料"},
-    {"type": "command", "name": "查曲", "desc": "按歌名或 ID 查询歌曲"},
+    {"type": "command", "name": "查曲", "desc": "按歌名、ID 或 lv 等级查询歌曲"},
     {"type": "command", "name": "查卡", "desc": "按角色或卡牌 ID 查询"},
-    {"type": "command", "name": "查缩写", "desc": "查询角色缩写，如 nnk、mtm"},
     {"type": "command", "name": "查活动", "desc": "活动资料暂未上线"},
     {"type": "command", "name": "查卡池", "desc": "卡池资料暂未上线"},
     {"type": "command", "name": "ycx", "desc": "预测线暂未上线"},
     {"type": "command", "name": "数据状态", "desc": "查看当前数据版本"},
     {"type": "command", "name": "帮助", "desc": "查看指令说明与示例"},
-    {"type": "command", "name": "语言", "desc": "查看中文、English、日本語指令"},
 ]
 
 

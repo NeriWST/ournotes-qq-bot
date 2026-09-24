@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import re
+import unicodedata
 from difflib import SequenceMatcher
 
 from .data import CHARACTER_ALIASES, Song, SongRepository, localized_text, normalize, resolve_character_alias
@@ -8,7 +9,7 @@ from .i18n import tr
 
 
 HELP_TEXT = """Our Notes 查询指令
-/查曲 歌名或ID [页N]：搜索歌曲列表，可翻页
+/查曲 [歌名或ID] [lv等级] [页N]：搜索歌曲列表，可翻页
 /查谱面 歌名或ID [难度]：查看谱面资料
 /查卡 角色名或卡牌ID [页N]：搜索卡面，可翻页
 /查缩写 缩写：查看缩写对应的角色，也可直接用于查卡
@@ -17,29 +18,29 @@ HELP_TEXT = """Our Notes 查询指令
 /ycx：活动预测线（暂未上线）
 /数据状态：查看数据版本
 /帮助：查看本说明
-示例：/查曲 迷星叫、/查谱面 100001 EXPERT、/查卡 skk、/查缩写 tmr"""
+示例：/查曲 mygo lv27、/查谱面 100001 EXPERT、/查卡 skk、/查缩写 tmr"""
 HELP_TEXTS = {
     "zh": HELP_TEXT + "\n/语言：查看英文和日文指令",
     "en": """Our Notes commands
-/song <title or ID> [page N]: search songs
+/song [title or ID] [lv level] [page N]: search songs
 /chart <title or ID> [difficulty]: view chart details
 /card <character, title or ID> [page N]: search cards
 /abbrev <abbreviation>: look up a character abbreviation
 /event, /gacha, /ycx: not available yet
 /status: data version  /language: language guide  /help: this guide
-Example: /song Mayoiuta, /chart 100001 EXPERT, /card tomori""",
+Example: /song mygo lv27, /chart 100001 EXPERT, /card tomori""",
     "ja": """Our Notes コマンド
-/曲 <曲名またはID> [ページN]：楽曲を検索
+/曲 [曲名またはID] [lvレベル] [ページN]：楽曲を検索
 /譜面 <曲名またはID> [難易度]：譜面情報
 /カード <キャラクター名・カード名・ID> [ページN]：カードを検索
 /略称 <略称>：キャラクターの略称
 /イベント・/ガチャ・/予想線：未公開
 /状態：データ版  /言語：言語案内  /ヘルプ：この案内
-例：/曲 迷星叫、/譜面 100001 EXPERT、/カード ともり""",
+例：/曲 mygo lv27、/譜面 100001 EXPERT、/カード ともり""",
 }
 
 COMMAND_HELP = {
-    "songs": "查询歌曲列表，支持歌名或曲目 ID，每页 16 首。\n用法：/查曲 <歌名或ID> [页N]\n示例：/查曲 迷星叫、/查曲 mygo 页2、/查曲 100001",
+    "songs": "查询歌曲列表，支持歌名、乐队、曲目 ID 或 lv 等级，每页 16 首。lv27 匹配整数等级 27（含显示等级 27.5），lv27.5 精确匹配显示等级。\n用法：/查曲 [歌名或ID] [lv等级] [页N]\n示例：/查曲 迷星叫、/查曲 lv27、/查曲 mygo lv27 页2",
     "chart": "查询谱面资料，支持歌名或曲目 ID。可选难度：EASY、NORMAL、HARD、EXPERT（默认显示全部）。\n用法：/查谱面 <歌名或ID> [难度]\n示例：/查谱面 100001 EXPERT",
     "cards": "查询卡面，支持卡牌 ID、角色名、卡牌名或乐队名，每页 16 张。\n用法：/查卡 <关键词或ID> [页N]\n示例：/查卡 高松灯、/查卡 mygo 页2、/查卡 51\n找到多张卡时会显示列表，再用卡牌 ID 查看大图。",
     "abbrev": "查询角色缩写，也可以直接用缩写查卡。\n用法：/查缩写 <缩写>\n示例：/查缩写 skk、/查卡 tmr",
@@ -47,13 +48,13 @@ COMMAND_HELP = {
 COMMAND_HELPS = {
     "zh": COMMAND_HELP,
     "en": {
-        "songs": "Search by song title or ID, 16 per page.\nUsage: /song <title or ID> [page N]\nExample: /song mygo page 2",
+        "songs": "Search by title, band, ID, or lv level; 16 songs per page. lv27 matches base level 27, while lv27.5 matches the displayed level exactly.\nUsage: /song [title or ID] [lv level] [page N]\nExample: /song mygo lv27 page 2",
         "chart": "Search chart details by title or ID. Optional difficulty: EASY, NORMAL, HARD, EXPERT.\nUsage: /chart <title or ID> [difficulty]\nExample: /chart 100001 EXPERT",
         "cards": "Search by card ID, character, card title, or band, 16 per page.\nUsage: /card <query or ID> [page N]\nExample: /card tomori or /card mygo page 2",
         "abbrev": "Look up character abbreviations.\nUsage: /abbrev <abbreviation>\nExample: /abbrev skk",
     },
     "ja": {
-        "songs": "曲名またはIDで検索します。1ページ16曲。\n使い方：/曲 <曲名またはID> [ページN]\n例：/曲 mygo ページ2",
+        "songs": "曲名・バンド・ID・lvレベルで検索します。1ページ16曲。lv27は基本レベル27、lv27.5は表示レベルを完全一致で検索します。\n使い方：/曲 [曲名またはID] [lvレベル] [ページN]\n例：/曲 mygo lv27 ページ2",
         "chart": "曲名またはIDで譜面を検索します。難易度は省略できます。\n使い方：/譜面 <曲名またはID> [難易度]\n例：/譜面 100001 EXPERT",
         "cards": "カードID、キャラクター名、カード名、バンド名で検索します。1ページ16枚。\n使い方：/カード <名前またはID> [ページN]\n例：/カード 祥子、/カード mygo ページ2、/カード 51",
         "abbrev": "キャラクターの略称を調べます。\n使い方：/略称 <略称>\n例：/略称 skk",
@@ -99,6 +100,22 @@ def _split_page(query: str) -> tuple[str, int]:
     if not match:
         return query, 1
     return query[:match.start()].strip(), int(next(value for value in match.groups() if value is not None))
+
+
+def song_matches(repository: SongRepository, query: str) -> list[Song]:
+    """Apply an optional trailing lv filter after the usual title/band/ID search."""
+    normalized = unicodedata.normalize("NFKC", query)
+    level_match = re.search(r"(?:^|\s)lv\.?\s*(\d+(?:\.\d+)?)\s*$", normalized, re.I)
+    term = normalized[:level_match.start()].strip() if level_match else query
+    matches = repository.search(term, limit=len(repository.songs)) if term else list(repository.songs)
+    if not level_match:
+        return matches
+    level_text = level_match.group(1)
+    if "." in level_text:
+        level = float(level_text)
+        return [song for song in matches if any(chart.display_level == level for chart in song.charts)]
+    level = int(level_text)
+    return [song for song in matches if any(chart.level == level for chart in song.charts)]
 
 
 def page_slice(items: list, page: int) -> list:
@@ -263,7 +280,7 @@ def handle_command(content: str, repository: SongRepository) -> str | None:
 
     parsed = parse_query(content)
     if parsed and parsed[0] == "songs":
-        matches = repository.search(parsed[1], limit=len(repository.songs))
+        matches = song_matches(repository, parsed[1])
         if not matches:
             variants = [(title, f"{localized_text(song, 'title', locale)}（{song.id}）") for song in repository.songs
                         for title in (*song.titles, *song.localized.get("title", {}).values())]
