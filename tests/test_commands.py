@@ -66,14 +66,31 @@ class CommandTests(unittest.TestCase):
                              charts=(Chart("EXPERT", 27, 27.5, 700, "chart"),))
         self.repo.songs = [base, same_band, other_band]
         self.assertEqual([song.id for song in song_matches(self.repo, "lv27")], [100001, 100002, 100003])
+        self.assertEqual(song_matches(self.repo, "27"), song_matches(self.repo, "lv27"))
+        self.assertEqual(song_matches(self.repo, "２７"), song_matches(self.repo, "lv27"))
         self.assertEqual([song.id for song in song_matches(self.repo, "lv27.5")], [100001, 100003])
+        self.assertEqual(song_matches(self.repo, "27.5"), song_matches(self.repo, "lv27.5"))
         self.assertEqual([song.id for song in song_matches(self.repo, "lv27.0")], [100002])
         self.assertEqual([song.id for song in song_matches(self.repo, "mygo LV 27.5")], [100001])
+        self.assertEqual(song_matches(self.repo, "mygo 27.5"), song_matches(self.repo, "mygo lv27.5"))
         self.assertEqual([song.id for song in song_matches(self.repo, "100001 lv27")], [100001])
         self.assertIn("共 1首", handle_command("/查曲 mygo lv27.5", self.repo) or "")
+        self.assertEqual(handle_command("/查曲 mygo 27.5", self.repo),
+                         handle_command("/查曲 mygo lv27.5", self.repo).replace("mygo lv27.5", "mygo 27.5"))
         self.assertIn("1 songs", handle_command("/song mygo lv27.5", self.repo) or "")
+        self.assertIn("1 songs", handle_command("/song mygo 27.5", self.repo) or "")
         self.assertIn("全1曲", handle_command("/曲 mygo lv27.5", self.repo) or "")
+        self.assertIn("全1曲", handle_command("/曲 mygo 27.5", self.repo) or "")
         self.assertIn("没有找到", handle_command("/查曲 lv29", self.repo) or "")
+
+    def test_bare_number_preserves_exact_song_id(self) -> None:
+        base = self.repo.songs[0]
+        self.repo.songs.append(replace(base, id=27, title="ID 27", titles=("ID 27",),
+                                       localized={"title": {"zh": "ID 27"}},
+                                       charts=(Chart("EXPERT", 20, 20.0, 700, "chart"),)))
+        self.assertEqual([song.id for song in song_matches(self.repo, "27")], [27])
+        self.assertEqual([song.id for song in song_matches(self.repo, "lv27")], [100001])
+        self.assertIn("ID 27", handle_command("/查曲 27", self.repo) or "")
 
     def test_song_level_filter_paginates_text_and_image(self) -> None:
         base = self.repo.songs[0]
@@ -82,14 +99,18 @@ class CommandTests(unittest.TestCase):
                                                  27.5 if index % 2 == 0 else 26.5, 800, "chart"),))
                            for index in range(35)]
         self.assertEqual(parse_query("/查曲 lv27 页2"), ("songs", "lv27", 2))
+        self.assertEqual(parse_query("/查曲 27 页2"), ("songs", "27", 2))
         first = handle_command("/查曲 lv27", self.repo) or ""
         second = handle_command("/查曲 lv27 页2", self.repo) or ""
+        plain = handle_command("/查曲 27 页2", self.repo) or ""
         self.assertIn("共 18首", first)
         self.assertIn("/查曲 lv27 页2", first)
         self.assertIn("100035", second)
         self.assertNotIn("100034", second)
+        self.assertIn("100035", plain)
+        self.assertIn("共 18首", plain)
         with patch("ournotes_bot.qq.render_song_list", return_value=b"image") as render:
-            self.assertEqual(_image_reply("/查曲 lv27 页2", self.repo), b"image")
+            self.assertEqual(_image_reply("/查曲 27 页2", self.repo), b"image")
             self.assertEqual(len(render.call_args.args[0]), 2)
             self.assertIn("共 18首", render.call_args.args[3])
 

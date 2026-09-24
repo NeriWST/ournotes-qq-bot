@@ -24,7 +24,7 @@ MORE_MENU_ITEMS = [
 PANEL_ITEMS = [
     # QQ stores the command name without '/', then adds the slash in the client UI.
     {"type": "command", "name": "查谱面", "desc": "按歌曲 ID 查询谱面资料"},
-    {"type": "command", "name": "查曲", "desc": "按歌名、ID 或 lv 等级查询歌曲"},
+    {"type": "command", "name": "查曲", "desc": "按歌名、ID 或等级查询歌曲"},
     {"type": "command", "name": "查卡", "desc": "按角色或卡牌 ID 查询"},
     {"type": "command", "name": "查活动", "desc": "活动资料暂未上线"},
     {"type": "command", "name": "查卡池", "desc": "卡池资料暂未上线"},
