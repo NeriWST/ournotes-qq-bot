@@ -1,0 +1,27 @@
+# Local credentials and private keys
+.env
+.env.*
+!.env.example
+.ssh/
+*.pem
+*.key
+*.ppk
+
+# Python and build outputs
+.venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+*.log
+*.zip
+
+# Runtime data, QQ sessions, downloaded game assets, and login QR codes
+data/*
+!data/.gitkeep
+/QQ/
+/napcat-data/
+/runtime/
+*qrcode*.png
+*login-qr*.png
